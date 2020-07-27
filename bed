@@ -1,11 +1,12 @@
-declare -A info
+#!/usr/bin/env bash
 declare -a buffer
 declare -i line=0
 declare -i base=1
 declare -i length=0
-declare file="$(printf "\033[33;1m")NONE$(printf "\033[39;22;100m")"
-declare version="INDEV"
-declare message="🛏  Welcome to bed"
+declare file version message
+file="$(printf "\033[33;1m")NONE$(printf "\033[39;22;100m")"
+version="INDEV"
+message="🛏  Welcome to bed"
 
 shopt -s checkwinsize
 trap refresh WINCH
@@ -46,7 +47,7 @@ load_custom() {
     cursor hide
     message="Load '$REPLY'? [y/n]"
     refresh
-    read -sN1 choice
+    read -rsN1 choice
     if [ "$choice" == "y" ]; then
         load "$REPLY"
     else
@@ -75,15 +76,15 @@ clear_line() {
 }
 
 delete_line() {
-    buffer=([0]= "${buffer[@]:1:line-1}" "${buffer[@]:line+1}")
-    unset buffer[0]
+    buffer=([0]="" "${buffer[@]:1:line-1}" "${buffer[@]:line+1}")
+    unset "buffer[0]"
     ((length > 0)) && ((length--))
     ((line > length)) && ((line--))
 }
 
 insert_line() {
-    buffer=([0]= "${buffer[@]:1:line}" "" "${buffer[@]:line+1}")
-    unset buffer[0]
+    buffer=([0]="" "${buffer[@]:1:line}" "" "${buffer[@]:line+1}")
+    unset "buffer[0]"
     ((length++))
     ((line++))
     refresh
@@ -91,20 +92,20 @@ insert_line() {
 }
 
 insert_line_direct() {
-    buffer=([0]= "${buffer[@]:1:line}" "$@" "${buffer[@]:line+1}")
-    unset buffer[0]
+    buffer=([0]="" "${buffer[@]:1:line}" "$@" "${buffer[@]:line+1}")
+    unset "buffer[0]"
     ((line += $#))
     ((length += $#))
 }
 
 blank_line() {
-    buffer=([0]= "${buffer[@]:1:line}" "" "${buffer[@]:line+1}")
-    unset buffer[0]
+    buffer=([0]="" "${buffer[@]:1:line}" "" "${buffer[@]:line+1}")
+    unset "buffer[0]"
     ((length++))
 }
 
 write() {
-    > "$file"
+    : >"$file"
     for ln in "${buffer[@]}"; do echo "$ln" >>"$file"; done
     message="Wrote $length lines to '$file'"
 }
@@ -127,20 +128,20 @@ move_down() {
 }
 
 page_up() {
-    for ((i=0; i < LINES - 2; i++)); do
+    for ((i=0; i < LINES - 4; i++)); do
         move_up
     done
 }
 
 page_down() {
-    for ((i=0; i < LINES - 2; i++)); do
+    for ((i=0; i < LINES - 4; i++)); do
         move_down
     done
 }
 
 insert_command() {
     read -a cmd -rep "> "
-    insert_line_direct $(command "${cmd[@]}")
+    insert_line_direct "$(command "${cmd[@]}")"
 }
 
 refresh() {
@@ -156,17 +157,17 @@ refresh() {
         fi
     done
 
-    printf "\033[34m$message\033[m\n"
+    printf "\033[34m%s\033[m\n" "$message"
 }
 
 main() {
     declare -a kp
-    while read -sN 1 -t0.05 kp[0] || true; do
+    while read -rsN 1 -t0.05 kp[0] || true; do
         clear && refresh
         [ "${kp[0]}" ] || continue
-        read -sN1 -t 0.0001 kp[1]
-        read -sN1 -t 0.0001 kp[2]
-        read -sN1 -t 0.0001 kp[3]
+        read -rsN1 -t 0.0001 kp[1]
+        read -rsN1 -t 0.0001 kp[2]
+        read -rsN1 -t 0.0001 kp[3]
         case "$(printf %s "${kp[@]}")" in
             $'\e[A'|$'\e0A') move_up;;
             $'\e[B'|$'\e0B') move_down;;
