@@ -52,16 +52,18 @@ file_read() {
     file_set "$1" || return 1
     mapfile -t -O 1 buffer <"$file"
     line=1
+    message="Read ${#buffer[@]} lines from '$file'"
 }
 
 file_set() {
     [ "$1" ] && file=$1 || return 1
+    message="Set file path to '$file'"
 }
 
 file_write() {
     : >"$file"
     for wline in "${buffer[@]}"; do echo "$wline" >>"$file"; done
-    return $?
+    message="Wrote ${buffer[@]} lines to '$file'"   
 }
 
 line_up() {
@@ -122,7 +124,7 @@ file_prompt () {
 
 keyboard_loop () {
     startup
-    file_read "$1"
+    file_read "$1" && message="🛏  Welcome to bed ($message)"
     refresh
 
     declare -a key
