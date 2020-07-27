@@ -23,6 +23,8 @@ paging up/down, line editing, deleting, saving/loading).
     b       insert blank line after the current line
     c       clear out current line's contents
     d       delete current line
+    e       edit current line
+    f       set target filename
     i       insert line after the current line and begin editing
     l       load file into the buffer
     q       quit the editing session
