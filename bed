@@ -113,6 +113,9 @@ move_up() {
     ((line > 1)) && ((line--))
     if ((line < base)); then
         ((base--))
+        if ((base <= 0)); then
+            base=1
+        fi
     fi
 }
 
