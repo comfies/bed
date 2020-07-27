@@ -14,22 +14,24 @@ trap refresh WINCH ALRM
 trap cleanup EXIT INT HUP USR1
 
 startup() {
-    cursor hide && cursor save
+    cursor hide && cursor spos && cursor save
 }
 
 cleanup() {
-    cursor show && cursor load
+    cursor show && cursor rpos && cursor load
     exit
 }
 
 cursor() {
     case "$1" in
-    #save) printf "\033[?47h";;
-    #load) printf "\033[?47l";;
-    hide) printf "\033[?25l";;
-    show) printf "\033[?25h";;
-    goto) printf "\033[%s;%sf" "$2" "$3";;
-    *)    return 1;;
+    save) printf "\e[?47h";;
+    load) printf "\e[?47l";;
+    spos) printf "\e7";;
+    rpos) printf "\e8\e[B";;
+    hide) printf "\e[?25l";;
+    show) printf "\e[?25h";;
+    goto) printf "\e[%s;%sf" "$2" "$3";;
+    *) return 1;;
     esac
 }
 
