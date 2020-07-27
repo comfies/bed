@@ -1,0 +1,187 @@
+declare -A info
+declare -a buffer
+declare -i line=0
+declare -i base=1
+declare -i length=0
+declare file="$(printf "\033[33;1m")NONE$(printf "\033[39;22;100m")"
+declare version="INDEV"
+declare message="🛏  Welcome to bed"
+
+shopt -s checkwinsize
+trap refresh WINCH
+trap cleanup EXIT
+trap : INT
+
+cursor() {
+    case "$1" in
+        save)  printf "\033[?47h";;             # Save terminal
+        reset) printf "\033[?47l";;             # Reset terminal
+        hide)  printf "\033[?25l";;             # Hide cursor
+        show)  printf "\033[?25h";;             # Show cursor
+        up)    printf "\033[%sA" "$2";;         # Move cursor up
+        down)  printf "\033[%sB" "$2";;         # Move cursor down
+        right) printf "\033[%sC" "$2";;         # Move cursor right
+        left)  printf "\033[%sD" "$2";;         # Move cursor left
+        line)  printf "\033[%sG" "$2";;         # Set horizontal position
+        pos)   printf "\033[%s;%sf" "$2" "$3";; # Set cursor position
+    esac
+}
+
+setup() { cursor hide; cursor save; }
+cleanup() { cursor show; cursor reset; }
+
+load() {
+    [ "$1" ] || return
+    file=$1
+    line=1
+    mapfile -t -O 1 buffer <"$1"
+    length=${#buffer[@]}
+    [ "$2" ] || message="Loaded $length lines from '$file'"
+}
+
+load_custom() {
+    cursor pos $LINES
+    cursor show
+    read -rep "> "
+    cursor hide
+    message="Load '$REPLY'? [y/n]"
+    refresh
+    read -sN1 choice
+    if [ "$choice" == "y" ]; then
+        load "$REPLY"
+    else
+        message="Cancelled"
+    fi
+}
+
+append_line() {
+    cursor pos $((line + 1)) $((6 + ${#buffer[line]}))
+    cursor show
+    read -re
+    cursor hide
+    buffer[line]+=$REPLY
+}
+
+edit_line() {
+    cursor pos $((line + 1)) 6
+    cursor show
+    read -rei "${buffer[line]}"
+    cursor hide
+    buffer[line]=$REPLY
+}
+
+clear_line() {
+    buffer[line]=
+}
+
+delete_line() {
+    buffer=([0]= "${buffer[@]:1:line-1}" "${buffer[@]:line+1}")
+    unset buffer[0]
+    ((length > 0)) && ((length--))
+    ((line > length)) && ((line--))
+}
+
+insert_line() {
+    buffer=([0]= "${buffer[@]:1:line}" "" "${buffer[@]:line+1}")
+    unset buffer[0]
+    ((length++))
+    ((line++))
+    refresh
+    edit_line
+}
+
+insert_line_direct() {
+    buffer=([0]= "${buffer[@]:1:line}" "$@" "${buffer[@]:line+1}")
+    unset buffer[0]
+    ((line += $#))
+    ((length += $#))
+}
+
+blank_line() {
+    buffer=([0]= "${buffer[@]:1:line}" "" "${buffer[@]:line+1}")
+    unset buffer[0]
+    ((length++))
+}
+
+write() {
+    > "$file"
+    for ln in "${buffer[@]}"; do echo "$ln" >>"$file"; done
+    message="Wrote $length lines to '$file'"
+}
+
+move_up() {
+    ((line > 1)) && ((line--))
+    if ((line < base)); then
+        ((base--))
+    fi
+}
+
+move_down() {
+    ((line < length)) && ((line++))
+    if ((line > (base + LINES-4))); then
+        ((base++))
+    fi
+}
+
+page_up() {
+    for ((i=0; i < LINES - 2; i++)); do
+        move_up
+    done
+}
+
+page_down() {
+    for ((i=0; i < LINES - 2; i++)); do
+        move_down
+    done
+}
+
+insert_command() {
+    read -a cmd -rep "> "
+    insert_line_direct $(command "${cmd[@]}")
+}
+
+refresh() {
+    printf "\033[100m %s (%s Lines) %s %sx%s %s \033[m\n" \
+        "$file" "$length" "$version" "$LINES" "$COLUMNS" "$base"
+
+    for ((i=base; (i - base + 1) < LINES - 2; i++)); do
+        ((i != line)) && printf "\033[90m"
+        if ((i > length)); then
+            printf "   ~\033[m\n"
+        else
+            printf "%4s\033[m %s\n" "$i" "${buffer[$i]}"
+        fi
+    done
+
+    printf "\033[34m$message\033[m\n"
+}
+
+main() {
+    declare -a kp
+    while read -sN 1 -t0.05 kp[0] || true; do
+        clear && refresh
+        [ "${kp[0]}" ] || continue
+        read -sN1 -t 0.0001 kp[1]
+        read -sN1 -t 0.0001 kp[2]
+        read -sN1 -t 0.0001 kp[3]
+        case "$(printf %s "${kp[@]}")" in
+            $'\e[A'|$'\e0A') move_up;;
+            $'\e[B'|$'\e0B') move_down;;
+            $'\e[5~'|$'\e05~') page_up;;
+            $'\e[6~'|$'\e06~') page_down;;
+            a) append_line;;
+            b) blank_line;;
+            c) clear_line;;
+            d) delete_line;;
+            e) edit_line;;
+            i) insert_line;;
+            l) load_custom;;
+            q) break;;
+            w) write;;
+        esac
+    done
+}
+
+load "$1" without message
+setup
+main

@@ -1,0 +1,30 @@
+                                   o
+                                   |
+                             o    ,|.
+                             |  ,' \ `.
+                             |,'\,' ,' `.   o
+                             |.`. ,'     `. |
+                             | `.`.    o  ,'|
+                                 `.`.  |,'  |
+                                   `.`.|  ,'|
+                                     `.|,'
+                                       |
+
+                           Bash only text editor
+
+Line-based/modal visual editor. Navigate with the arrow keys and edit with
+vim-like bindings. Supports basic file editing and viewing (e.g. scrolling,
+paging up/down, line editing, deleting, saving/loading).
+
+    up      move up a line
+    down    move down a line
+    pgup    move up a page (terminal height)
+    pgdown  move down a page
+    a       append text to the end of the current line
+    b       insert blank line after the current line
+    c       clear out current line's contents
+    d       delete current line
+    i       insert line after the current line and begin editing
+    l       load file into the buffer
+    q       quit the editing session
+    w       write buffer to file
