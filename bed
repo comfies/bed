@@ -1,191 +1,145 @@
 #!/usr/bin/env bash
 declare -a buffer
-declare -i line=0
-declare -i base=1
-declare -i length=0
+declare -i line base
 declare file version message
-file="$(printf "\033[33;1m")NONE$(printf "\033[39;22;100m")"
+
+line=0
+base=1
+file="bed.txt"
 version="INDEV"
 message="🛏  Welcome to bed"
 
-shopt -s checkwinsize
-trap refresh WINCH
-trap cleanup EXIT
-trap : INT
+shopt -s checkwinsize; (:)
+trap refresh WINCH ALRM
+trap cleanup EXIT INT HUP USR1
+
+startup() {
+    cursor hide && cursor save
+}
+
+cleanup() {
+    cursor show && cursor load
+    exit
+}
 
 cursor() {
     case "$1" in
-        save)  printf "\033[?47h";;             # Save terminal
-        reset) printf "\033[?47l";;             # Reset terminal
-        hide)  printf "\033[?25l";;             # Hide cursor
-        show)  printf "\033[?25h";;             # Show cursor
-        up)    printf "\033[%sA" "$2";;         # Move cursor up
-        down)  printf "\033[%sB" "$2";;         # Move cursor down
-        right) printf "\033[%sC" "$2";;         # Move cursor right
-        left)  printf "\033[%sD" "$2";;         # Move cursor left
-        line)  printf "\033[%sG" "$2";;         # Set horizontal position
-        pos)   printf "\033[%s;%sf" "$2" "$3";; # Set cursor position
+    #save) printf "\033[?47h";;
+    #load) printf "\033[?47l";;
+    hide) printf "\033[?25l";;
+    show) printf "\033[?25h";;
+    goto) printf "\033[%s;%sf" "$2" "$3";;
+    *)    return 1;;
     esac
 }
 
-setup() { cursor hide; cursor save; }
-cleanup() { cursor show; cursor reset; }
+refresh() {
+    clear
+    printf "\e[100m %s (%s Lines) %s %sx%s %s \e[m\n" \
+        "$file" "${#buffer[@]}" "$version" "$LINES" "$COLUMNS" "$base"
+    for ((i=base; i-base < LINES-3; i++)); do
+        ((i !=  line))        && printf "\e[90m"
+        ((i > ${#buffer[@]})) && printf "   ~\e[m\n" || printf "%4s\e[m %s\n" "$i" "${buffer[i]}"
+    done
+    printf "\e[34m%s\e[m\n" "$message"
+}
 
-load() {
-    [ "$1" ] || return
-    file=$1
+file_read() {
+    file_set "$1" || return 1
+    mapfile -t -O 1 buffer <"$file"
     line=1
-    mapfile -t -O 1 buffer <"$1"
-    length=${#buffer[@]}
-    [ "$2" ] || message="Loaded $length lines from '$file'"
 }
 
-load_custom() {
-    cursor pos $LINES
-    cursor show
-    read -rep "> "
-    cursor hide
-    message="Load '$REPLY'? [y/n]"
+file_set() {
+    [ "$1" ] && file=$1 || return 1
+}
+
+file_write() {
+    : >"$file"
+    for line in "${buffer[@]}"; do echo "$line" >>"$file"; done
+    return $?
+}
+
+line_up() {
+    for ((i=0;i<$1;i++)); do
+        ((line > 1))    && ((line--))
+        ((line < base)) && ((base--))
+        ((base <= 0))   && base=1
+    done
+}
+
+line_down() {
+    for ((i=0;i<$1;i++)); do
+        ((line < ${#buffer[@]})) && ((line++))
+        ((line > base+LINES-4))  && ((base++))
+    done
+}
+
+line_delete() {
+    buffer=([0]="" "${buffer[@]:1:line-1}" "${buffer[@]:line+1}")
+    unset "buffer[0]"
+    ((line > ${#buffer[@]})) && ((line--))
+}
+
+line_insert() {
+    buffer=([0]="" "${buffer[@]:1:line}" "" "${buffer[@]:line+1}")
+    unset "buffer[0]"
+    ((line++))
     refresh
-    read -rsN1 choice
-    if [ "$choice" == "y" ]; then
-        load "$REPLY"
-    else
-        message="Cancelled"
-    fi
+    line_edit
 }
 
-append_line() {
-    cursor pos $((line + 1)) $((6 + ${#buffer[line]}))
-    cursor show
+line_blank() {
+    buffer=([0]="" "${buffer[@]:1:line}" "" "${buffer[@]:line+1}")
+    unset "buffer[0]"
+}
+
+line_append() {
+    cursor goto $((line-base + 2)) $((${#buffer[line]} + 6)) && cursor show
     read -re
     cursor hide
     buffer[line]+=$REPLY
 }
 
-edit_line() {
-    cursor pos $((line + 1)) 6
-    cursor show
+line_edit() {
+    cursor goto $((line-base + 2)) 6 && cursor show
     read -rei "${buffer[line]}"
     cursor hide
     buffer[line]=$REPLY
 }
 
-clear_line() {
-    buffer[line]=
-}
+startup
+file_read "$1"
+refresh
 
-delete_line() {
-    buffer=([0]="" "${buffer[@]:1:line-1}" "${buffer[@]:line+1}")
-    unset "buffer[0]"
-    ((length > 0)) && ((length--))
-    ((line > length)) && ((line--))
-}
+declare -a key
+while read -t0.02 -rsN1 key[0] || true; do
+    # If a timeout occured, do nothing
+    [ "${key[0]}" ] || continue
 
-insert_line() {
-    buffer=([0]="" "${buffer[@]:1:line}" "" "${buffer[@]:line+1}")
-    unset "buffer[0]"
-    ((length++))
-    ((line++))
+    # Nasty hack for multibyte input
+    read -rsN1 -t 0.0001 key[1]
+    read -rsN1 -t 0.0001 key[2]
+    read -rsN1 -t 0.0001 key[3]
+
+    # Compute key presses
+    case "$(printf %s "${key[@]}")" in
+    $'\e[A'|$'\e0A') line_up 1;;
+    $'\e[B'|$'\e0B') line_down 1;;
+    $'\e[5~'|$'\e05~') line_up $((LINES - 4));;
+    $'\e[6~'|$'\e06~') line_down $((LINES - 4));;
+    a) line_append;;
+    b) line_blank;;
+    c) line_clear;;
+    d) line_delete;;
+    e) line_edit;;
+    f) file_set $(read -rep "> ");;
+    i) line_insert;;
+    l) file_read $(read -rep "> ");;
+    q) exit;;
+    w) file_write;;
+    esac
+
+    # Refresh the UI
     refresh
-    edit_line
-}
-
-insert_line_direct() {
-    buffer=([0]="" "${buffer[@]:1:line}" "$@" "${buffer[@]:line+1}")
-    unset "buffer[0]"
-    ((line += $#))
-    ((length += $#))
-}
-
-blank_line() {
-    buffer=([0]="" "${buffer[@]:1:line}" "" "${buffer[@]:line+1}")
-    unset "buffer[0]"
-    ((length++))
-}
-
-write() {
-    : >"$file"
-    for ln in "${buffer[@]}"; do echo "$ln" >>"$file"; done
-    message="Wrote $length lines to '$file'"
-}
-
-move_up() {
-    ((line > 1)) && ((line--))
-    if ((line < base)); then
-        ((base--))
-        if ((base <= 0)); then
-            base=1
-        fi
-    fi
-}
-
-move_down() {
-    ((line < length)) && ((line++))
-    if ((line > (base + LINES-4))); then
-        ((base++))
-    fi
-}
-
-page_up() {
-    for ((i=0; i < LINES - 4; i++)); do
-        move_up
-    done
-}
-
-page_down() {
-    for ((i=0; i < LINES - 4; i++)); do
-        move_down
-    done
-}
-
-insert_command() {
-    read -a cmd -rep "> "
-    insert_line_direct "$(command "${cmd[@]}")"
-}
-
-refresh() {
-    printf "\033[100m %s (%s Lines) %s %sx%s %s \033[m\n" \
-        "$file" "$length" "$version" "$LINES" "$COLUMNS" "$base"
-
-    for ((i=base; (i - base + 1) < LINES - 2; i++)); do
-        ((i != line)) && printf "\033[90m"
-        if ((i > length)); then
-            printf "   ~\033[m\n"
-        else
-            printf "%4s\033[m %s\n" "$i" "${buffer[$i]}"
-        fi
-    done
-
-    printf "\033[34m%s\033[m\n" "$message"
-}
-
-main() {
-    declare -a kp
-    while read -rsN 1 -t0.05 kp[0] || true; do
-        clear && refresh
-        [ "${kp[0]}" ] || continue
-        read -rsN1 -t 0.0001 kp[1]
-        read -rsN1 -t 0.0001 kp[2]
-        read -rsN1 -t 0.0001 kp[3]
-        case "$(printf %s "${kp[@]}")" in
-            $'\e[A'|$'\e0A') move_up;;
-            $'\e[B'|$'\e0B') move_down;;
-            $'\e[5~'|$'\e05~') page_up;;
-            $'\e[6~'|$'\e06~') page_down;;
-            a) append_line;;
-            b) blank_line;;
-            c) clear_line;;
-            d) delete_line;;
-            e) edit_line;;
-            i) insert_line;;
-            l) load_custom;;
-            q) break;;
-            w) write;;
-        esac
-    done
-}
-
-load "$1" without message
-setup
-main
+done
