@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+
 declare -a buffer
 declare -i line base
 declare file version message
+bind 'set disable-completion on'
 
 line=0
 base=1
@@ -110,38 +112,70 @@ line_edit() {
     buffer[line]=$REPLY
 }
 
-startup
-file_read "$1"
-refresh
+file_prompt () {
+    bind 'set disable-completion off' 2>/dev/null
+    read -rep "> " choice
+    bind 'set disable-completion on'
+    printf "$choice"
+}
 
-declare -a key
-while read -t0.02 -rsN1 key[0] || true; do
-    # If a timeout occured, do nothing
-    [ "${key[0]}" ] || continue
-
-    # Nasty hack for multibyte input
-    read -rsN1 -t 0.0001 key[1]
-    read -rsN1 -t 0.0001 key[2]
-    read -rsN1 -t 0.0001 key[3]
-
-    # Compute key presses
-    case "$(printf %s "${key[@]}")" in
-    $'\e[A'|$'\e0A') line_up 1;;
-    $'\e[B'|$'\e0B') line_down 1;;
-    $'\e[5~'|$'\e05~') line_up $((LINES - 4));;
-    $'\e[6~'|$'\e06~') line_down $((LINES - 4));;
-    a) line_append;;
-    b) line_blank;;
-    c) line_clear;;
-    d) line_delete;;
-    e) line_edit;;
-    f) file_set $(read -rep "> ");;
-    i) line_insert;;
-    l) file_read $(read -rep "> ");;
-    q) exit;;
-    w) file_write;;
-    esac
-
-    # Refresh the UI
+keyboard_loop () {
+    startup
+    file_read "$1"
     refresh
-done
+
+    declare -a key
+    while read -t0.02 -rsN1 key[0] || true; do
+        # If a timeout occured, do nothing
+        [ "${key[0]}" ] || continue
+
+        # Nasty hack for multibyte input
+        read -rsN1 -t 0.0001 key[1]
+        read -rsN1 -t 0.0001 key[2]
+        read -rsN1 -t 0.0001 key[3]
+
+        # Compute key presses
+        case "$(printf %s "${key[@]}")" in
+        $'\e[A'|$'\e0A') line_up 1;;
+        $'\e[B'|$'\e0B') line_down 1;;
+        $'\e[5~'|$'\e05~') line_up $((LINES - 4));;
+        $'\e[6~'|$'\e06~') line_down $((LINES - 4));;
+        a) line_append;;
+        b) line_blank;;
+        c) line_clear;;
+        d) line_delete;;
+        e) line_edit;;
+        f) file_set $(file_prompt);;
+        i) line_insert;;
+        l) file_read $(file_prompt);;
+        q) exit;;
+        w) file_write;;
+        esac
+
+        # Refresh the UI
+        refresh
+    done
+}
+
+usage () {
+cat <<EOF
+${0##*/}: bash text editor
+
+usage: ${0##*/} [options] [file]
+
+options:
+    -h|--help: print this help message
+
+open file for editing.
+if file is not given, default to bed.txt.
+EOF
+}
+
+main () {
+    case $1 in
+        -h|--help) usage;;
+        *) keyboard_loop "$1";;
+    esac
+}
+
+main "$@"
