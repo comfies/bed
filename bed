@@ -3,7 +3,7 @@
 declare -a buffer
 declare -i line base
 declare file version message
-bind 'set disable-completion on'
+bind 'set disable-completion on' 2>/dev/null
 
 line=0
 base=1
@@ -60,7 +60,7 @@ file_set() {
 
 file_write() {
     : >"$file"
-    for line in "${buffer[@]}"; do echo "$line" >>"$file"; done
+    for wline in "${buffer[@]}"; do echo "$wline" >>"$file"; done
     return $?
 }
 
@@ -106,6 +106,7 @@ line_append() {
 }
 
 line_edit() {
+    ((line == 0)) && return
     cursor goto $((line-base + 2)) 6 && cursor show
     read -rei "${buffer[line]}"
     cursor hide
