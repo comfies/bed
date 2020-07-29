@@ -111,6 +111,13 @@ line_append() {
     unsaved_changes=1 #Set unsaved changes to 1
 }
 
+line_clear() {
+    ((line == 0)) && return
+    cursor goto $((line-base + 2)) 6
+    buffer[line]=""
+    unsaved_changes=1
+}
+
 line_edit() {
     ((line == 0)) && return
     cursor goto $((line-base + 2)) 6 && cursor show
