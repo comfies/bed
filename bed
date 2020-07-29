@@ -10,6 +10,7 @@ base=1
 file="bed.txt"
 version="INDEV"
 message="🛏  Welcome to bed"
+unsaved_changes=0
 
 shopt -s checkwinsize; (:)
 trap refresh WINCH ALRM
@@ -64,6 +65,7 @@ file_write() {
     : >"$file"
     for wline in "${buffer[@]}"; do echo "$wline" >>"$file"; done
     message="Wrote ${buffer[@]} lines to '$file'"   
+    unsaved_changes=0
 }
 
 line_up() {
@@ -85,6 +87,7 @@ line_delete() {
     buffer=([0]="" "${buffer[@]:1:line-1}" "${buffer[@]:line+1}")
     unset "buffer[0]"
     ((line > ${#buffer[@]})) && ((line--))
+    unsaved_changes=1 #Set unsaved changes to 1
 }
 
 line_insert() {
@@ -105,6 +108,14 @@ line_append() {
     read -re
     cursor hide
     buffer[line]+=$REPLY
+    unsaved_changes=1 #Set unsaved changes to 1
+}
+
+line_clear() {
+    ((line == 0)) && return
+    cursor goto $((line-base + 2)) 6
+    buffer[line]=""
+    unsaved_changes=1
 }
 
 line_clear() {
@@ -118,7 +129,11 @@ line_edit() {
     cursor goto $((line-base + 2)) 6 && cursor show
     read -rei "${buffer[line]}"
     cursor hide
-    buffer[line]=$REPLY
+    #Update line if changed
+    if [ "${buffer[line]}" != "$REPLY" ]; then
+        buffer[line]=$REPLY
+        unsaved_changes=1 #Set unsaved changes to 1
+    fi
 }
 
 file_prompt () {
@@ -126,6 +141,31 @@ file_prompt () {
     read -rep "> " choice
     bind 'set disable-completion on'
     printf "$choice"
+}
+
+quit () {
+    if [ "$unsaved_changes" -ne 0 ]; then
+        message="File $file was modified, save before close? [Y/n/c] "
+        while [ 1 ]; do #Iterate until a valid answer is provided
+            refresh
+            read -n 1
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                file_write
+                refresh
+                exit 0
+            elif [[ $REPLY =~ ^[Nn]$ ]]; then
+                exit 0
+            elif [[ $REPLY =~ ^[Cc]$ ]]; then
+                message="Quit cancelled"
+                break #Break and return
+            else
+                continue #Invalid answer, keep iterating
+            fi
+        done
+    else
+        exit 0
+    fi
+    #Return performing no action
 }
 
 keyboard_loop () {
@@ -157,7 +197,7 @@ keyboard_loop () {
         f) file_set $(file_prompt);;
         i) line_insert;;
         l) file_read $(file_prompt);;
-        q) exit;;
+        q) quit;;
         w) file_write;;
         esac
 
