@@ -107,6 +107,12 @@ line_append() {
     buffer[line]+=$REPLY
 }
 
+line_clear() {
+    ((line == 0)) && return
+    cursor goto $((line-base + 2)) 6
+    buffer[line]=""
+}
+
 line_edit() {
     ((line == 0)) && return
     cursor goto $((line-base + 2)) 6 && cursor show
