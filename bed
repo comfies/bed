@@ -33,8 +33,8 @@ cursor() {
     hide) printf "\e[?25l";;
     show) printf "\e[?25h";;
     goto) printf "\e[%s;%sf" "$2" "$3";;
-    *) return 1;;
     esac
+    return 1
 }
 
 refresh() {
@@ -128,7 +128,7 @@ keyboard_loop () {
     refresh
 
     declare -a key
-    while read -t0.02 -rsN1 key[0] || true; do
+    while read -rsN1 -t0.02 key[0] || true; do
         # If a timeout occured, do nothing
         [ "${key[0]}" ] || continue
 
