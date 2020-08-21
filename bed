@@ -119,13 +119,13 @@ die() {
 }
 
 redraw() {
-    (printf '\e[2J\e[?25l\e[100m%*s\r %s \e[46;30m %s \e[0;100m L%s W%s\e[m' \
+    (printf '\e[H\e[?25l\e[100m%*s\r %s \e[46;30m %s \e[0;100m L%s W%s\e[m' \
         "$COLUMNS" "$message" "${BED_ICON:=🛏 }" \
         "${file:-N/A}" "$line" "${#buffer[line]}") # Status line, among others
     for ((i = base; i - base < LINES - 2; i++)); do # Iterate over shown lines
         ((i != line)) && printf '\e[90m' # Fade line number if not selected
-        ((i > ${#buffer[@]})) && printf '\n   ~\e[m' || \
-            printf '\n%4s\e[m %s' "$i" "${buffer[i]}" # Print the line
+        ((i > ${#buffer[@]})) && printf '\n\e[K   ~\e[m' || \
+            printf '\n\e[K%4s\e[m %s' "$i" "${buffer[i]}" # Print the line
     done
     printf '\n' # Add final newline to seperate commandline
 }
