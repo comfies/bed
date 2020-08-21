@@ -11,21 +11,35 @@
 
                            Bash only text editor
 
+[ DESCRIPTION ]
+
 Line-based/modal visual editor. Navigate with the arrow keys and edit with
 vim-like bindings. Supports basic file editing and viewing (e.g. scrolling,
 paging up/down, line editing, deleting, saving/loading).
 
-    up      move up a line
-    down    move down a line
-    pgup    move up a page (terminal height)
-    pgdown  move down a page
-    a       append text to the end of the current line
-    b       insert blank line after the current line
-    c       clear out current line's contents
-    d       delete current line
-    e       edit current line
-    f       set target filename
-    i       insert line after the current line and begin editing
-    l       load file into the buffer
-    q       quit the editing session
-    w       write buffer to file
+[ ENVIRONMENT VARIABLES ]
+
+BED_FILE_PROMPT      Prompt shown when setting a file
+BED_REFRESH_TIMEOUT  How long to wait idle until redrawing
+BED_ICON             String to be shown in the top left of the status bar
+
+[ KEYBINDS ]
+
+Each bind is set with an environment variable 'BED_KEY_<NAME>'. Values for
+the binds are the actual contents the keypress(es) would insert.
+
+Name     Default  Description
+----     -------  -----------
+PGUP     pgup     Move up a window's worth of lines
+PGDN     pgdn     Move down a window's worth of lines
+UP       ↑        Move up a line
+DOWN     ↓        Move down a line
+HELP     h        Open bed manpage
+QUIT     q        Exit bed
+FILE     f        Set target file
+READ     r        Read file into the buffer
+WRITE    w        Write buffer into the file
+EDIT     e        Modify current line
+APPEND   a        Append new line, move to it and begin editing
+DELETE   d        Delete the current line
+NEW      n        Insert new line after current
