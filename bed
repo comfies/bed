@@ -82,7 +82,7 @@ delete_line() {
 }
 
 quit() {
-    if $modified; then
+    if [[ "$modified" == "true" ]]; then
         while :; do
             read -rsN1 -p "Buffer modified, save before close? [Y/n/c]" choice
             case "$choice" in
@@ -165,7 +165,7 @@ main() {
     while redraw; do # Keep redrawing when we can (allow WINCH signals to get handled)
         local -a k=()
         local -i i=1
-        if read -rsN1 -t${BED_REFRESH_TIMEOUT:=0.1} k[0]; then # Check for ready input
+        if read -rsN1 -t"${BED_REFRESH_TIMEOUT:=0.1}" k[0]; then # Check for ready input
             while read -rsN1 -t0.0001 k[$i]; do ((i++)); done # Multibyte hack
             key "$(printf '%s' "${k[@]}")" # Handle keypress event
         fi
