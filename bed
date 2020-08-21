@@ -105,11 +105,19 @@ up() {
     done
 }
 
+page_up() {
+    up $((LINES - 3))
+}
+
 down() {
     for ((i = 0; i < ${1:-1}; i++)); do
         ((line < ${#buffer[@]})) && ((line++)) # If we can go down, go down
         ((line > base + LINES - 3)) && ((base++)) # Move window down if needed
     done
+}
+
+page_down() {
+    down $((LINES - 3))
 }
 
 die() {
@@ -121,7 +129,7 @@ die() {
 redraw() {
     (printf '\e[H\e[?25l\e[100m%*s\r %s \e[46;30m %s \e[0;100m L%s W%s\e[m' \
         "$COLUMNS" "$message" "${BED_ICON:=🛏 }" \
-        "${file:-N/A}" "$line" "${#buffer[line]}") # Status line, among others
+        "$(basename "$file")" "$line" "${#buffer[line]}") # Status line, among others
     for ((i = base; i - base < LINES - 2; i++)); do # Iterate over shown lines
         ((i != line)) && printf '\e[90m' # Fade line number if not selected
         ((i > ${#buffer[@]})) && printf '\n\e[K   ~\e[m' || \
@@ -132,8 +140,8 @@ redraw() {
 
 key() {
     case "$1" in
-    ${BED_KEY_PGUP:=$'\E[5~'}) up $((LINES - 3));;
-    ${BED_KEY_PGDN:=$'\E[6~'}) down $((LINES - 3));;
+    ${BED_KEY_PGUP:=$'\E[5~'}) page_up;;
+    ${BED_KEY_PGDN:=$'\E[6~'}) page_down;;
     ${BED_KEY_UP:=$'\E[A'}*) up;;
     ${BED_KEY_DOWN:=$'\E[B'}*) down;;
     ${BED_KEY_HELP:=$'\b'}) get_help;; # Open the manpage (breaks stuff)
