@@ -2,7 +2,7 @@
 
 declare -a buffer
 declare -i line base
-declare file message
+declare file message modified
 
 buffer=() # File contents
 line=0 # Currently selected line (0 means the buffer is empty)
@@ -14,12 +14,13 @@ modified=false # Tracking whether a file was modified
 shopt -s extglob # Ensure advanced pattern matching is available
 shopt -s checkwinsize; (:) # Enable and then trigger a terminal size refresh
 trap redraw WINCH ALRM # Attach WINCH and ALRM to redraw the screen
-trap die EXIT INT HUP USR1 # Attach most exit codes to cleanup and exit
+trap die EXIT HUP USR1 # Attach most exit codes to cleanup and exit
+trap quit INT
 
 set_buffer_file() {
     bind 'set disable-completion off' 2>/dev/null # Enable completion
     printf '\e[?25h' # Enable cursor
-    if read -rei "$1$file" -p "Path: " file; then
+    if read -rei "$1$file" -p "${BED_FILE_PROMPT:=Path: }" file; then
         modified=true
     fi
     bind 'set disable-completion on' 2>/dev/null
@@ -30,6 +31,7 @@ read_buffer() {
     mapfile -t -O 1 buffer <"$file" # Read file into an array
     if [[ "${buffer[1]}" ]]; then # Ensure that something was actually read into the file
         line=1 # Indicate that we have a buffer loaded
+        modified=false
         message="Read ${#buffer[@]} lines from '$file'"
     else
         message="'$file' is empty"
@@ -41,6 +43,7 @@ write_buffer() {
     for ln in "${buffer[@]}"; do # Write in the buffer to the file
         echo "$ln" >>"$file"
     done
+    modified=false
     message="Wrote ${#buffer[@]} lines to '$file'"
 }
 
@@ -61,6 +64,7 @@ edit_line() {
 new_line() {
     buffer=("" "${buffer[@]:1:line}" "" "${buffer[@]:line+1}")
     unset 'buffer[0]'
+    modified=true
 }
 
 append_line() {
@@ -75,6 +79,22 @@ delete_line() {
     unset 'buffer[0]'
     ((line > ${#buffer[@]})) && up
     modified=true
+}
+
+quit() {
+    if $modified; then
+        while :; do
+            read -rsN1 -p "Buffer modified, save before close? [Y/n/c]" choice
+            case "$choice" in
+            Y|y) write_buffer; die;;
+            N|n) die;;
+            C|c) message="Quit canceled"; break;;
+            *) continue;;
+            esac
+        done
+    else
+        die
+    fi
 }
 
 up() {
@@ -117,7 +137,7 @@ key() {
     ${BED_KEY_UP:=$'\E[A'}*) up;;
     ${BED_KEY_DOWN:=$'\E[B'}*) down;;
     ${BED_KEY_HELP:=$'\b'}) get_help;; # Open the manpage (breaks stuff)
-    ${BED_KEY_QUIT:=q}) die;; # TODO replace with editor_quit()
+    ${BED_KEY_QUIT:=q}) quit;;
     ${BED_KEY_FILE:=f}) set_buffer_file;;
     ${BED_KEY_READ:=r}) read_buffer;;
     ${BED_KEY_WRITE:=w}) write_buffer;;
@@ -137,7 +157,7 @@ main() {
     while redraw; do # Keep redrawing when we can (allow WINCH signals to get handled)
         local -a k=()
         local -i i=1
-        if read -rsN1 -t0.1 k[0]; then # Check for ready input
+        if read -rsN1 -t${BED_REFRESH_TIMEOUT:=0.1} k[0]; then # Check for ready input
             while read -rsN1 -t0.0001 k[$i]; do ((i++)); done # Multibyte hack
             key "$(printf '%s' "${k[@]}")" # Handle keypress event
         fi
