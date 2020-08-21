@@ -34,7 +34,6 @@ PGUP     pgup     Move up a window's worth of lines
 PGDN     pgdn     Move down a window's worth of lines
 UP       ↑        Move up a line
 DOWN     ↓        Move down a line
-HELP     h        Open bed manpage
 QUIT     q        Exit bed
 FILE     f        Set target file
 READ     r        Read file into the buffer
