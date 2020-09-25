@@ -220,10 +220,21 @@ if file is not given, default to bed.txt.
 EOF
 }
 
+version () {
+cat <<EOF
+$version
+EOF
+}
+
 main () {
-    case $1 in
+    arg=$1
+    if [ $# -eq 0 ]; then
+        arg=$file
+    fi
+    case $arg in
         -h|--help) trap : EXIT; usage;;
-        *) keyboard_loop "$1";;
+        -v|--version) trap : EXIT; version;;
+        *) keyboard_loop "$arg";;
     esac
 }
 
