@@ -2,8 +2,11 @@
 
 declare -a buffer
 declare -i line base
-declare file version message
+declare file version message global_config user_config
 bind 'set disable-completion on' 2>/dev/null
+
+global_config="/etc/bedconf"
+user_config="$HOME/.bedconf"
 
 line=0
 base=1
@@ -11,6 +14,9 @@ file="bed.txt"
 version="INDEV"
 message="🛏  Welcome to bed"
 unsaved_changes=0
+
+source $global_config
+source $user_config
 
 shopt -s checkwinsize; (:)
 trap refresh WINCH ALRM
